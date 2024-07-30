@@ -16,10 +16,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.sisu.Nullable;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.channels.Channels;
@@ -46,6 +43,7 @@ public class RunMojo extends AbstractMojo {
     private boolean gui;
     @Parameter(property = "dependencies", defaultValue = "true")
     private boolean dependencies;
+
     private @Nullable Process server;
 
     @Override
@@ -218,15 +216,19 @@ public class RunMojo extends AbstractMojo {
     public void startServer() throws IOException {
         getLog().info("Starting PaperMC server...");
         Path serverDir = Path.of(path);
-        Path paperJar = serverDir.resolve("paper.jar").toAbsolutePath();
         ProcessBuilder processBuilder;
+        Path paperJar = serverDir.resolve("paper.jar").toAbsolutePath();
         if (gui) {
             processBuilder = new ProcessBuilder("java", memory, "-jar", paperJar.toString());
         } else {
             processBuilder = new ProcessBuilder("java", memory, "-jar", paperJar.toString(), "nogui");
         }
         processBuilder.directory(serverDir.toFile());
-        server = processBuilder.inheritIO().start();
+        processBuilder.redirectErrorStream(true);
+        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        processBuilder.redirectInput(ProcessBuilder.Redirect.PIPE);
+
+        server = processBuilder.start();
         getLog().info("PaperMC server started successfully.");
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             getLog().info("Shutdown Hook: Stopping PaperMC server...");
@@ -243,13 +245,12 @@ public class RunMojo extends AbstractMojo {
 
     public void stopServer() {
         if (server != null && server.isAlive()) {
-            server.destroy();
-            try {
-                server.waitFor();
-                getLog().info("PaperMC server stopped.");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                getLog().error("Failed to stop PaperMC server.", e);
+            try (OutputStream os = server.getOutputStream()) {
+                os.write("stop\n".getBytes());
+                os.flush();
+                getLog().info("Sent 'stop' command to PaperMC server.");
+            } catch (IOException e) {
+                getLog().error("Failed to send 'stop' command to PaperMC server.", e);
             }
         }
     }
