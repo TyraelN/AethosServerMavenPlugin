@@ -71,6 +71,7 @@ public class RunMojo extends AbstractMojo {
         getLog().info("Installing dependencies...");
         for (Dependency dependency : project.getDependencies()) {
             if ("provided".equals(dependency.getScope())) {
+
                 downloadPlugin(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion());
             }
         }
@@ -83,6 +84,9 @@ public class RunMojo extends AbstractMojo {
     }
 
     public void downloadPlugin(String repository, String group, String artifact, String version) throws IOException {
+        if (!repository.endsWith("/")) {
+            repository = repository + "/";
+        }
         String urlStr = repository + group.replace(".", "/") + "/" + artifact + "/" + version + "/" + artifact + "-" + version + ".jar";
         URL url = new URL(urlStr);
 
@@ -99,7 +103,7 @@ public class RunMojo extends AbstractMojo {
 
 
         if (!isPlugin(url.openStream())) {
-            getLog().info("Skipping dependency: " + artifact);
+            getLog().info("Skipping dependency. " + artifact + " is not a Plugin");
             return;
         }
         InputStream inputStream = url.openStream();
