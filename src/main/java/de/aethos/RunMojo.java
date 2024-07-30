@@ -14,6 +14,7 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.eclipse.sisu.Nullable;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -45,7 +46,7 @@ public class RunMojo extends AbstractMojo {
     private boolean gui;
     @Parameter(property = "dependencies", defaultValue = "true")
     private boolean dependencies;
-
+    private @Nullable Process server;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -225,8 +226,32 @@ public class RunMojo extends AbstractMojo {
             processBuilder = new ProcessBuilder("java", memory, "-jar", paperJar.toString(), "nogui");
         }
         processBuilder.directory(serverDir.toFile());
-        processBuilder.inheritIO().start();
+        server = processBuilder.inheritIO().start();
         getLog().info("PaperMC server started successfully.");
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            getLog().info("Shutdown Hook: Stopping PaperMC server...");
+            stopServer();
+        }));
+        while (server.isAlive()) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    public void stopServer() {
+        if (server != null && server.isAlive()) {
+            server.destroy();
+            try {
+                server.waitFor();
+                getLog().info("PaperMC server stopped.");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                getLog().error("Failed to stop PaperMC server.", e);
+            }
+        }
     }
 
 }
