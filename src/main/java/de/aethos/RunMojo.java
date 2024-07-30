@@ -123,7 +123,7 @@ public class RunMojo extends AbstractMojo {
         JarEntry entry;
         JarInputStream jis = new JarInputStream(stream);
         while ((entry = jis.getNextJarEntry()) != null) {
-            if (entry.getName().equals("plugin.yml")) {
+            if (entry.getName().equals("plugin.yml") || entry.getName().equals("paper-plugin.yml")) {
                 return true;
             }
         }
