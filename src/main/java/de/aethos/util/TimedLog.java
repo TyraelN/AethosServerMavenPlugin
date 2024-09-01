@@ -1,4 +1,4 @@
-package de.aethos;
+package de.aethos.util;
 
 import org.apache.maven.plugin.logging.Log;
 

@@ -1,4 +1,4 @@
-package de.aethos;
+package de.aethos.util;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;

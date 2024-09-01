@@ -1,6 +1,9 @@
 package de.aethos;
 
-
+import de.aethos.util.PaperDownloader;
+import de.aethos.util.PluginDownloader;
+import de.aethos.util.ServerController;
+import de.aethos.util.TimedLog;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
@@ -13,62 +16,46 @@ import org.apache.maven.project.MavenProject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-@Mojo(name = "run", defaultPhase = LifecyclePhase.VERIFY)
-public class RunMojo extends AbstractMojo {
+@Mojo(name = "install", defaultPhase = LifecyclePhase.VERIFY)
+public class InstallMojo extends AbstractMojo {
+
     @Component
     private MavenProject project;
     @Parameter(property = "paperVersion", required = true)
     private String paperVersion;
     @Parameter(property = "path", defaultValue = "server")
     private String path;
-    @Parameter(property = "memory", defaultValue = "-Xmx1024M")
-    private String memory;
-    @Parameter(property = "gui", defaultValue = "false")
-    private boolean gui;
     @Parameter(property = "dependencies", defaultValue = "true")
     private boolean dependencies;
 
     @Override
     public void execute() throws MojoExecutionException {
         final ExecutorService service = Executors.newSingleThreadExecutor();
+
         try {
             setupDirectories();
             final PaperDownloader paperDownloader = new PaperDownloader(Path.of(path), paperVersion, getLog());
             final Future<?> paperFuture = service.submit(paperDownloader::download);
-            movePlugin();
             if (dependencies) {
                 final Path plugins = Path.of(path).resolve("plugins");
                 final PluginDownloader pluginDownloader = new PluginDownloader(plugins, getLog(), project.getDependencies(), project.getRepositories());
                 pluginDownloader.download();
             }
+            ServerController control = new ServerController(Path.of(path), getLog());
+            control.createDefaultProperties();
             paperFuture.get();
             service.shutdown();
-            final ServerRunner runner = new ServerRunner(Path.of(path), gui, memory, getLog());
-            runner.startServer();
         } catch (Exception e) {
             getLog().error(e);
             throw new MojoExecutionException(e);
         }
     }
-
-    public void movePlugin() throws MojoExecutionException, IOException {
-        final Path plugin = Path.of(project.getBuild().getDirectory()).resolve(project.getArtifactId() + "-" + project.getVersion() + ".jar");
-        final Path pluginFolder = Path.of(path).resolve("plugins");
-        final Path target = pluginFolder.resolve(plugin.getFileName());
-        if (!Files.exists(pluginFolder) || !Files.isDirectory(pluginFolder)) {
-            throw new MojoExecutionException("Plugin folder " + pluginFolder.toAbsolutePath() + " does not exist");
-        }
-        Files.copy(plugin.toAbsolutePath(), target.toAbsolutePath(), StandardCopyOption.REPLACE_EXISTING);
-        getLog().info("Plugin " + plugin + " moved to " + target);
-    }
-
 
     public void setupDirectories() throws IOException, MojoExecutionException {
         final Path server = Path.of(path);
@@ -79,7 +66,7 @@ public class RunMojo extends AbstractMojo {
         if (!Files.isDirectory(server)) {
             throw new MojoExecutionException(server + " is not an directory");
         } else {
-            setEULATrue(server);
+            acceptEula();
         }
         final Path plugins = server.resolve("plugins");
         if (!Files.exists(plugins)) {
@@ -91,13 +78,12 @@ public class RunMojo extends AbstractMojo {
         }
     }
 
-    public void setEULATrue(Path dir) throws IOException {
+    public void acceptEula() throws IOException {
+        final Path eulaFile = Path.of(path).resolve("eula.txt");
         getLog().info("Accepting EULA...");
-        final Path eulaFile = dir.resolve("eula.txt");
         Files.write(eulaFile, "eula=true".getBytes());
         getLog().info("EULA accepted");
     }
-
 
     @Override
     public Log getLog() {
