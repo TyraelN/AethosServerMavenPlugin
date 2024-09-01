@@ -45,6 +45,14 @@ public class ServerController {
         }
     }
 
+    public void stop() {
+        sendCommand("stop");
+    }
+
+    public void reload() {
+        sendCommand("reload confirm");
+    }
+
     public String readPassword() {
         return readProperties().getProperty("rcon.password");
     }
@@ -110,6 +118,21 @@ public class ServerController {
         } catch (IOException e) {
             throw new IllegalStateException("Error reading server.properties", e);
         }
+    }
+
+    public boolean isRunning() {
+        try (Rcon rcon = Rcon.newBuilder()
+                .withChannel(SocketChannel.open(
+                        new InetSocketAddress("localhost", readPort())))
+                .withCharset(StandardCharsets.UTF_8)
+                .withReadBufferCapacity(1234)
+                .withWriteBufferCapacity(1234)
+                .build()) {
+            return rcon.authenticate(readPassword());
+        } catch (IOException exception) {
+            return false;
+        }
+
     }
 
     private static final class Password {

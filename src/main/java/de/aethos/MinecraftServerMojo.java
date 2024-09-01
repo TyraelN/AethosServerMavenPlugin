@@ -31,14 +31,22 @@ public class MinecraftServerMojo extends AbstractMojo {
     private String memory;
     @Parameter(property = "gui", defaultValue = "false")
     private boolean gui;
+    @Parameter(property = "reload", defaultValue = "true")
+    private boolean reload;
 
 
     @Override
     public void execute() throws MojoExecutionException {
         try {
-            movePlugin();
             Path path = Path.of(this.path);
             Preconditions.checkArgument(Files.isDirectory(path));
+            ServerController controller = new ServerController(path, getLog());
+            movePlugin();
+            if (reload && controller.isRunning()) {
+                controller.reload();
+                return;
+            }
+            controller.setup();
             ProcessBuilder builder;
             Path paperJar = path.resolve("paper.jar").toAbsolutePath();
             if (gui) {
@@ -46,14 +54,13 @@ public class MinecraftServerMojo extends AbstractMojo {
             } else {
                 builder = new ProcessBuilder("java", memory, "-jar", paperJar.toString(), "nogui");
             }
-            ServerController controller = new ServerController(path, getLog());
-            controller.setup();
+
             builder.directory(path.toFile());
             builder.redirectError(ProcessBuilder.Redirect.INHERIT);
             builder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
             builder.redirectInput(ProcessBuilder.Redirect.INHERIT);
             getLog().info("PaperMC server started successfully.");
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> controller.sendCommand("stop")));
+            Runtime.getRuntime().addShutdownHook(new Thread(controller::stop));
             builder.start().waitFor();
         } catch (Exception e) {
             getLog().error(e);
