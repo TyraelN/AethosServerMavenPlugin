@@ -38,6 +38,7 @@ public class MinecraftServerMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException {
         try {
+
             Path path = Path.of(this.path);
             Preconditions.checkArgument(Files.isDirectory(path));
             ServerController controller = new ServerController(path, getLog());
