@@ -62,7 +62,7 @@ public class MinecraftServerMojo extends AbstractMojo {
             builder.redirectInput(ProcessBuilder.Redirect.INHERIT);
             getLog().info("PaperMC server started successfully.");
             Runtime.getRuntime().addShutdownHook(new Thread(controller::stop));
-            builder.start().waitFor();
+            builder.start();
         } catch (Exception e) {
             getLog().error(e);
             throw new MojoExecutionException(e);
