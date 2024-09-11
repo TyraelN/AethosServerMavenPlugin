@@ -38,7 +38,6 @@ public class MinecraftServerMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException {
         try {
-
             Path path = Path.of(this.path);
             Preconditions.checkArgument(Files.isDirectory(path));
             ServerController controller = new ServerController(path, getLog());
@@ -62,7 +61,7 @@ public class MinecraftServerMojo extends AbstractMojo {
             builder.redirectInput(ProcessBuilder.Redirect.INHERIT);
             getLog().info("PaperMC server started successfully.");
             Runtime.getRuntime().addShutdownHook(new Thread(controller::stop));
-            builder.start();
+            builder.start().waitFor();
         } catch (Exception e) {
             getLog().error(e);
             throw new MojoExecutionException(e);

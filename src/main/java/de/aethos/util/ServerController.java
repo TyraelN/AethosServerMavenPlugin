@@ -75,7 +75,7 @@ public class ServerController {
             rcon.close();
             log.info("Sent " + str + "  command to PaperMC server.");
         } catch (IOException e) {
-            log.error("Failed to send" + str + " command to PaperMC server.", e);
+            log.error("Failed to send " + str + " command to PaperMC server.", e);
         }
     }
 
