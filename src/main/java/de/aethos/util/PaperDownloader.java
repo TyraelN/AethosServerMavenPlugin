@@ -1,6 +1,7 @@
 package de.aethos.util;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -11,11 +12,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 
 public class PaperDownloader {
+    private static final String API_URL = "https://api.papermc.io/v2/projects/paper/versions/${MINECRAFT_VERSION}/builds";
     private final Path dir;
     private final String version;
     private final Log log;
@@ -32,7 +35,7 @@ public class PaperDownloader {
             getLog().info("paper.jar already exists");
         } else {
             try {
-                URL url = getPaperUrl(version);
+                URL url = fetchDOwnloadURL(version);
                 try (InputStream in = url.openStream()) {
                     Files.copy(in, paperJar);
                 }
@@ -43,23 +46,30 @@ public class PaperDownloader {
         getLog().info("Server setup completed successfully.");
     }
 
-    public URL getPaperUrl(String version) throws IOException, MojoExecutionException {
-        getLog().info("Fetching latest build number for PaperMC version " + version + "...");
-        final String paperMcApiUrl = "https://papermc.io/api/v2/projects/paper/versions/" + version;
-        if (new URL(paperMcApiUrl).openConnection() instanceof HttpURLConnection connection) {
-            connection.setRequestMethod("GET");
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                throw new MojoExecutionException("Failed to fetch PaperMC version info. HTTP error code: " + connection.getResponseCode());
+    public URL fetchDOwnloadURL(String version) throws IOException, MojoExecutionException {
+        getLog().info("Fetching latest build number for PaperMC version " + version);
+        final String string = API_URL.replace("${MINECRAFT_VERSION}", version);
+        final URL buildsURL = new URL(string);
+        getLog().info("PaperMC API URL: " + buildsURL);
+        final URLConnection connection = buildsURL.openConnection();
+        if (connection instanceof HttpURLConnection httpsConnection) {
+            httpsConnection.setRequestMethod("GET");
+            if (httpsConnection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new MojoExecutionException("Failed to fetch PaperMC version info. HTTP error code: " + httpsConnection.getResponseCode());
             }
-            final InputStream responseStream = connection.getInputStream();
+            final InputStream responseStream = httpsConnection.getInputStream();
             final InputStreamReader inputStream = new InputStreamReader(responseStream);
             final JsonObject responseObject = JsonParser.parseReader(inputStream).getAsJsonObject();
             final JsonArray builds = responseObject.getAsJsonArray("builds");
-            final int latestBuild = builds.get(builds.size() - 1).getAsInt();
+            final JsonObject object = builds.get(builds.size() - 1).getAsJsonObject();
+            final JsonElement element = object.get("build");
+            final int latestBuild = element.getAsInt();
             getLog().info("Downloading PaperMC build " + latestBuild + " for version " + version + "...");
-            return new URL(paperMcApiUrl + "/builds/" + latestBuild + "/downloads/paper-" + version + "-" + latestBuild + ".jar");
+            String url = string + "/${LATEST_BUILD}/downloads/${JAR_NAME}".replace("${LATEST_BUILD}", String.valueOf(latestBuild)).replace("${JAR_NAME}", "paper-" + version + "-" + latestBuild + ".jar");
+            return new URL(url);
+        } else {
+            throw new MojoExecutionException("Failed to fetch PaperMC version info.");
         }
-        return null;
     }
 
     public String getVersion() {

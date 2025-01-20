@@ -47,7 +47,7 @@ public class InstallMojo extends AbstractMojo {
                 final PluginDownloader pluginDownloader = new PluginDownloader(plugins, getLog(), project.getDependencies(), project.getRepositories());
                 pluginDownloader.download();
             }
-            ServerController control = new ServerController(Path.of(path), getLog());
+            final ServerController control = new ServerController(Path.of(path), getLog());
             control.createDefaultProperties();
             paperFuture.get();
             service.shutdown();

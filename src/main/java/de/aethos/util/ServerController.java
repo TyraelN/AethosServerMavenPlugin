@@ -65,7 +65,6 @@ public class ServerController {
         try (Rcon rcon = Rcon.newBuilder()
                 .withChannel(SocketChannel.open(
                         new InetSocketAddress("localhost", readPort())))
-                .withCharset(StandardCharsets.UTF_8)
                 .withReadBufferCapacity(1234)
                 .withWriteBufferCapacity(1234)
                 .build()) {

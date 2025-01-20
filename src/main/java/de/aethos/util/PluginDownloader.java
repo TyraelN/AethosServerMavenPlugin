@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,16 +46,16 @@ public class PluginDownloader {
         this.dir = dir;
         NO_FILE = dependency -> !Files.exists(dir.resolve(dependency.getArtifactId() + "-" + dependency.getVersion() + ".jar"));
         this.repositories = repositories;
-        this.dependencies = dependencies.stream().filter(NOT_PAPER).filter(IS_PROVIDED).filter(NO_FILE).toList();
+        this.dependencies = dependencies.stream()
+                .filter(NOT_PAPER)
+                .filter(IS_PROVIDED)
+                .filter(NO_FILE)
+                .toList();
         GET_URLS_AND_PATHS = dependency -> repositories.stream()
                 .map(RepositoryBase::getUrl)
-                .flatMap(str -> {
-                    URL url = url(str.endsWith("/") ? str : str + "/", dependency);
-                    if (url != null) {
-                        return Stream.of(Map.entry(url, dir.resolve(dependency.getArtifactId() + "-" + dependency.getVersion() + ".jar")));
-                    }
-                    return Stream.empty();
-                });
+                .map(str -> url(str.endsWith("/") ? str : str + "/", dependency))
+                .filter(Objects::nonNull)
+                .map(url -> Map.entry(url, dir.resolve(dependency.getArtifactId() + "-" + dependency.getVersion() + ".jar")));
     }
 
     private static URL url(String repository, Dependency dependency) {
